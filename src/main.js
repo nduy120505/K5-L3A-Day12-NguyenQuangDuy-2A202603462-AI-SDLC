@@ -4,11 +4,14 @@ import * as THREE from 'three';
 import { Game, DT, STD, emptyInput } from './core/game.js';
 import { MAPS } from './core/maps.js';
 import { buildWorld, PAL } from './render/world.js';
+import { benchScenario, benchCamera, frameStats } from './core/bench.js';
 import { Audio } from './render/audio.js';
 
 const contract = await (await fetch('game.contract.json')).json();
 const T = contract.tuning;
 const $ = (id) => document.getElementById(id);
+const QS = new URLSearchParams(location.search);
+const BENCH = QS.get('bench') ? { seed: +(QS.get('seed') || 42), duration: +(QS.get('duration') || 30), warmup: 3 } : null;
 
 // ---------- settings (persisted) ----------
 const settings = { volume: 0.6, sens: 1, cb: false };
@@ -157,6 +160,39 @@ function makeMote() {
   return { g };
 }
 
+// ---------- instanced pools (performance: a few draw calls for hundreds of shades / motes) ----------
+const MAXI = 512;
+function pool(geo, mat, n = MAXI) {
+  const m = new THREE.InstancedMesh(geo, mat, n);
+  m.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+  m.count = 0;
+  m.frustumCulled = false;
+  scene.add(m);
+  return m;
+}
+const shadeBodyMat = new THREE.MeshLambertMaterial({ color: '#ffffff', emissive: PAL.shadeRim, emissiveIntensity: 0.25 });
+const shadeRimMat = new THREE.MeshBasicMaterial({ color: PAL.shadeRim, transparent: true, opacity: 0.4, side: THREE.BackSide, depthWrite: false });
+const shadeEyeMat = new THREE.MeshBasicMaterial({ color: '#ffffff' });
+const P = {
+  body: pool(new THREE.SphereGeometry(0.8, 14, 10), shadeBodyMat),
+  tail: pool(new THREE.ConeGeometry(0.6, 1.0, 10).rotateX(Math.PI).translate(0, -0.8, 0), shadeBodyMat),
+  rim: pool(new THREE.SphereGeometry(0.92, 14, 10), shadeRimMat),
+  eye: pool(new THREE.SphereGeometry(0.11, 6, 6), shadeEyeMat, MAXI * 2),
+  mote: pool(new THREE.SphereGeometry(0.15, 8, 6), new THREE.MeshBasicMaterial({ color: PAL.moteCore })),
+  halo: pool(new THREE.SphereGeometry(0.38, 8, 6), new THREE.MeshBasicMaterial({ color: PAL.moteHalo, transparent: true, opacity: 0.28, depthWrite: false })),
+};
+const dummy = new THREE.Object3D();
+const eyeV = new THREE.Vector3();
+const eyeM = new THREE.Matrix4();
+const camGoal = new THREE.Vector3();
+const projV = new THREE.Vector3();
+const tmpC = new THREE.Color();
+const phaseOf = (id) => {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) % 1000;
+  return h / 159;
+};
+
 // ---------- app state ----------
 const app = { mode: 'menu', night: 1, totals: {}, game: null, view: null, world: null, settingsFrom: 'menu' };
 const input = emptyInput();
@@ -175,13 +211,13 @@ function show(id) {
   $('hud').classList.toggle('hidden', !(app.mode === 'play' || app.mode === 'pause'));
 }
 
-function loadNight(n) {
+function loadNight(n, opts = {}) {
   if (app.world) scene.remove(app.world.group);
   for (const o of app.view?.all ?? []) scene.remove(o);
   app.night = n;
   const map = MAPS[n];
   const seed = (Date.now() & 0x7fffffff) >>> 0;
-  app.game = new Game(T, { seed, night: n, onEvent });
+  app.game = new Game(T, { seed: opts.seed ?? seed, night: n, onEvent, scenario: opts.scenario ?? null, bench: opts.bench ?? null });
   app.world = buildWorld(map);
   scene.add(app.world.group);
   const view = (app.view = { lanterns: new Map(), shades: new Map(), motes: new Map(), drifters: new Map(), charms: new Map(), all: [], fx: [] });
@@ -478,31 +514,52 @@ function render(now) {
   scene.background.copy(SKY).lerp(WARMSKY, k * 0.6);
   scene.fog.color.copy(FOG).lerp(WARMSKY, k * 0.6);
   scene.fog.density = 0.03 - 0.018 * k;
-  // motes
-  syncMap(v.motes, g.motes, makeMote);
+  // motes (instanced)
+  let mi = 0;
   for (const m of g.motes) {
-    const mv = v.motes.get(m.id);
-    mv.g.position.set(m.pos[0], m.pos[1] + 0.8 + Math.sin(t * 2 + mv.phase) * 0.25, m.pos[2]);
-    mv.g.visible = !(m.kind === 'dropped' && m.ttl < 90 && Math.floor(t * 8) % 2);
+    if (m.kind === 'dropped' && m.ttl < 90 && Math.floor(t * 8) % 2 && !settings.reduce) continue;
+    const ph = phaseOf(m.id);
+    dummy.position.set(m.pos[0], m.pos[1] + 0.8 + Math.sin(t * 2 + ph) * 0.25, m.pos[2]);
+    dummy.rotation.set(0, 0, 0);
+    dummy.scale.setScalar(1);
+    dummy.updateMatrix();
+    P.mote.setMatrixAt(mi, dummy.matrix);
+    P.halo.setMatrixAt(mi, dummy.matrix);
+    mi++;
   }
-  // shades
-  syncMap(v.shades, g.shades, makeShade);
+  P.mote.count = P.halo.count = mi;
+  P.mote.instanceMatrix.needsUpdate = P.halo.instanceMatrix.needsUpdate = true;
+  // shades (instanced: body, tail, rim, 2 eyes)
+  const rimC = settings.cb ? '#00B3FF' : PAL.shadeRim;
+  shadeRimMat.color.set(rimC);
+  shadeBodyMat.emissive.set(rimC);
+  shadeEyeMat.color.set(settings.cb ? '#00B3FF' : '#d9b8ff');
+  let si = 0;
   for (const s of g.shades) {
-    const sv = v.shades.get(s.id);
     const stun = s.state === 'stunned';
+    const ph = phaseOf(s.id);
     const rise = s.state === 'spawning' ? 1 - s.ticks / STD.spawningTicks : 1;
-    sv.g.position.set(s.pos[0], s.pos[1] - (1 - rise) * 2 + Math.sin(t * 2 + sv.phase) * 0.2, s.pos[2]);
-    sv.g.lookAt(p.pos[0], sv.g.position.y, p.pos[2]);
-    sv.mat.color.set(stun ? PAL.shadeStun : PAL.shade);
-    sv.mat.opacity = stun ? 0.6 : 0.95 * rise;
-    sv.rimMat.opacity = s.state === 'chase' || s.state === 'drain' ? 0.6 : 0.3;
-    if (s.state === 'drain') sv.g.scale.setScalar(1 + 0.08 * Math.sin(t * 8));
-    else sv.g.scale.setScalar(1);
-    const rimC = settings.cb ? '#00B3FF' : PAL.shadeRim;
-    sv.rimMat.color.set(rimC);
-    sv.mat.emissive.set(rimC);
-    sv.eyeMat.color.set(stun ? PAL.core : settings.cb ? '#00B3FF' : '#d9b8ff');
-    sv.g.rotation.z = stun ? Math.sin(t * 10) * 0.3 : 0;
+    dummy.position.set(s.pos[0], s.pos[1] - (1 - rise) * 2 + Math.sin(t * 2 + ph) * 0.2, s.pos[2]);
+    dummy.rotation.set(0, Math.atan2(p.pos[0] - s.pos[0], p.pos[2] - s.pos[2]), stun && !settings.reduce ? Math.sin(t * 10) * 0.3 : 0);
+    const pulse = s.state === 'drain' ? 1 + 0.08 * Math.sin(t * 8) : 1;
+    dummy.scale.setScalar(pulse);
+    dummy.updateMatrix();
+    P.body.setMatrixAt(si, dummy.matrix);
+    P.tail.setMatrixAt(si, dummy.matrix);
+    P.rim.setMatrixAt(si, dummy.matrix);
+    P.body.setColorAt(si, tmpC.set(stun ? PAL.shadeStun : PAL.shade));
+    for (const [k, ex] of [[0, -0.25], [1, 0.25]]) {
+      eyeV.set(ex, 0.15, 0.72).applyEuler(dummy.rotation).multiplyScalar(pulse).add(dummy.position);
+      P.eye.setMatrixAt(si * 2 + k, eyeM.makeTranslation(eyeV.x, eyeV.y, eyeV.z));
+      P.eye.setColorAt(si * 2 + k, tmpC.set(stun ? PAL.core : '#ffffff'));
+    }
+    si++;
+  }
+  P.body.count = P.tail.count = P.rim.count = si;
+  P.eye.count = si * 2;
+  for (const m of [P.body, P.tail, P.rim, P.eye]) {
+    m.instanceMatrix.needsUpdate = true;
+    if (m.instanceColor) m.instanceColor.needsUpdate = true;
   }
   // drifters
   syncMap(v.drifters, g.drifters.filter((d) => d.state !== 'removed'), makeDrifter);
@@ -554,9 +611,17 @@ function render(now) {
     }
   }
   // camera
+  if (BENCH) {
+    const c = benchCamera(benchT);
+    camera.position.set(c[0], c[1], c[2]);
+    camera.lookAt(0, 0, 0);
+    hud(lit);
+    renderer.render(scene, camera);
+    return;
+  }
   const fx = Math.sin(camYaw), fz = Math.cos(camYaw);
   const target = tmpV.set(p.pos[0], p.pos[1] + 1.2, p.pos[2]);
-  camera.position.lerp(new THREE.Vector3(p.pos[0] - fx * 9, p.pos[1] + 5, p.pos[2] - fz * 9), 0.15);
+  camera.position.lerp(camGoal.set(p.pos[0] - fx * 9, p.pos[1] + 5, p.pos[2] - fz * 9), 0.15);
   if (shake > 0) {
     camera.position.x += (Math.random() - 0.5) * shake;
     camera.position.y += (Math.random() - 0.5) * shake;
@@ -567,21 +632,32 @@ function render(now) {
   renderer.render(scene, camera);
 }
 
+const htmlCache = {};
+function setHTML(id, html) {
+  if (htmlCache[id] === html) return;
+  htmlCache[id] = html;
+  $(id).innerHTML = html;
+}
+function setText(id, txt) {
+  if (htmlCache[id] === txt) return;
+  htmlCache[id] = txt;
+  $(id).textContent = txt;
+}
 function hud(lit) {
   const g = app.game, p = g.player;
-  $('hFlames').innerHTML = Array.from({ length: Math.max(T.flames, p.flames) }, (_, i) => `<div class="flame ${i < p.flames ? '' : 'off'}"></div>`).join('');
+  setHTML('hFlames', Array.from({ length: Math.max(T.flames, p.flames) }, (_, i) => `<div class="flame ${i < p.flames ? '' : 'off'}"></div>`).join(''));
   const left = Math.max(0, Math.ceil(g.timeLeft() - 1e-9));
-  $('hClock').textContent = `${String(Math.floor(left / 60)).padStart(2, '0')}:${String(left % 60).padStart(2, '0')}`;
+  const clock = `${String(Math.floor(left / 60)).padStart(2, '0')}:${String(left % 60).padStart(2, '0')}`;
   $('hClock').classList.toggle('danger', left <= 30);
-  $('hClock').textContent = (settings.cb && left <= 30 ? '⚠ ' : '') + $('hClock').textContent;
+  setText('hClock', (settings.cb && left <= 30 ? '⚠ ' : '') + clock);
   if (app.mode === 'play' && left <= 10 && left > 0 && left !== lastSec) audio.sfx('tick');
   lastSec = left;
   const need = Math.ceil(T.win_ratio * g.lanterns.length - 1e-9);
-  $('hLit').textContent = `${lit}/${g.lanterns.length} (cần ${need})`;
+  setText('hLit', `${lit}/${g.lanterns.length} (cần ${need})`);
   const cap = g.capacity();
   if ($('hMotes').children.length !== cap) $('hMotes').innerHTML = Array.from({ length: cap }, () => '<div class="cell"></div>').join('');
-  $('hCap').textContent = `${p.carried}/${cap}`;
-  $('hScore').textContent = totalScore() + g.score;
+  setText('hCap', `${p.carried}/${cap}`);
+  setText('hScore', String(totalScore() + g.score));
   [...$('hMotes').children].forEach((c, i) => c.classList.toggle('on', i < p.carried));
   const dashReady = p.charm > 0 ? 1 : 1 - p.dashCd / g.T.dashCd;
   const pulseReady = p.carried < T.pulse_cost ? 0 : 1 - p.pulseCd / g.T.pulseCd;
@@ -595,19 +671,19 @@ function hud(lit) {
   else if (p.carried >= cap) hint = 'Đã mang đầy ánh sáng, hãy về thắp hoặc châm đèn!';
   const weak = g.lanterns.filter((l) => l.lit && l.fuelU < g.FU.low).length;
   if (weak) hint = (hint ? hint + ' · ' : '') + `${settings.cb ? '⚠ ' : ''}${weak} đèn sắp cạn dầu!`;
-  $('hHint').textContent = hint;
+  setText('hHint', hint);
   const st = [];
   if (p.charm > 0) st.push(`<span style="color:${PAL.scarf}">Bùa Gió ${Math.ceil(p.charm / 60)}s</span>`);
   if (g.wind.warn && !g.wind.active) st.push('<span style="color:#a6d98a">Gió sắp nổi!</span>');
   if (g.wind.active) st.push('<span style="color:#a6d98a">Gió mạnh!</span>');
   if (p.dead > 0) st.push(`<span style="color:${PAL.danger}">Đang hồi sinh...</span>`);
-  $('hStatus').innerHTML = st.join(' · ');
+  setHTML('hStatus', st.join(' · '));
   // arrow to nearest unlit lantern when off-screen
   const arrow = $('hArrow');
   const unlit = g.lanterns.filter((l) => !l.lit).sort((a, b) => Math.hypot(a.pos[0] - p.pos[0], a.pos[2] - p.pos[2]) - Math.hypot(b.pos[0] - p.pos[0], b.pos[2] - p.pos[2]))[0];
   arrow.style.display = 'none';
   if (unlit) {
-    const v = new THREE.Vector3(unlit.pos[0], unlit.pos[1] + 3.6, unlit.pos[2]).project(camera);
+    const v = projV.set(unlit.pos[0], unlit.pos[1] + 3.6, unlit.pos[2]).project(camera);
     const behind = v.z > 1;
     const on = !behind && Math.abs(v.x) <= 1 && Math.abs(v.y) <= 1;
     if (!on) {
@@ -628,9 +704,32 @@ function hud(lit) {
 
 // ---------- main loop ----------
 let last = performance.now(), fpsN = 0, fpsT = 0, fpsAvg = [];
+let benchT = 0, benchStart = null;
+const benchDts = [];
 function frame(now) {
-  const dt = Math.min(0.1, (now - last) / 1000);
+  const rawMs = now - last;
+  const dt = Math.min(0.1, rawMs / 1000);
   last = now;
+  if (BENCH && app.mode === 'play') {
+    if (benchStart === null) {
+      benchStart = now;
+      window.__benchFirstFrameEpoch = performance.timeOrigin + now;
+    } else {
+      benchT = (now - benchStart) / 1000;
+      if (benchT > BENCH.warmup && benchT <= BENCH.warmup + BENCH.duration) benchDts.push(rawMs);
+      if (benchT > BENCH.warmup + BENCH.duration && !window.__benchResult) {
+        const gl = renderer.getContext();
+        const dbg = gl.getExtension('WEBGL_debug_renderer_info');
+        window.__benchResult = {
+          ...frameStats(benchDts),
+          renderer: `three.js r${THREE.REVISION} WebGL2 · ${dbg ? gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER)}`,
+          canvas: [renderer.domElement.width, renderer.domElement.height],
+          js_heap_mb: performance.memory ? Math.round(performance.memory.usedJSHeapSize / 1048576) : null,
+          entities: { shades: app.game.shades.length, motes: app.game.motes.length },
+        };
+      }
+    }
+  }
   if (app.mode === 'play') {
     readInput();
     acc += dt;
@@ -656,6 +755,13 @@ function frame(now) {
   }
   requestAnimationFrame(frame);
 }
-loadNight(1);
-show('menu');
+if (BENCH) {
+  renderer.setPixelRatio(1);
+  loadNight(1, { seed: BENCH.seed, scenario: benchScenario(BENCH.seed), bench: {} });
+  app.mode = 'play';
+  show(null);
+} else {
+  loadNight(1);
+  show('menu');
+}
 requestAnimationFrame(frame);

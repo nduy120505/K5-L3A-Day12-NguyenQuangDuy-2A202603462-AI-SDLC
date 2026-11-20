@@ -44,13 +44,15 @@ export class ScenarioError extends Error {}
 
 export class Game {
   /** @param tuning contract tuning · opts { seed, night, scenario, onEvent } */
-  constructor(tuning, { seed = 0, night = 1, scenario = null, onEvent = null } = {}) {
+  constructor(tuning, { seed = 0, night = 1, scenario = null, onEvent = null, bench = null } = {}) {
     if (!MAPS[night]) throw new ScenarioError(`unknown night ${night}`);
     this.t = tuning;
     this.night = night;
     this.map = MAPS[night];
     this.rng = createRng(seed);
     this.onEvent = onEvent;
+    // Ticket-04 benchmark scene switches (all off for gameplay/headless): no damage, pickup, fuel decay, end
+    this.bench = bench ? { noDamage: true, noPickup: true, noFuel: true, noEnd: true, ...bench } : null;
     this.tick = 0;
     this.simTick = 0;
     this.paused = false;
@@ -323,7 +325,7 @@ export class Game {
     this.motes = this.motes.filter((m) => m.kind !== 'dropped' || --m.ttl > 0);
     // fuel: decay + drain (integer 1/60 units), then lanterns at fuel <= 0 go out
     for (const l of this.lanterns) {
-      if (!l.lit) continue;
+      if (!l.lit || this.bench?.noFuel) continue;
       const drainers = this.shades.filter((sh) => sh.state === 'drain' && sh.target === l.id);
       l.fuelU -= this.FU.decay + this.FU.drain * drainers.length;
       for (const sh of drainers) {
@@ -356,7 +358,7 @@ export class Game {
     if (p.dead === 0) this.movePlayer(input, edge);
 
     // 4. pickups
-    if (p.dead === 0) {
+    if (p.dead === 0 && !this.bench?.noPickup) {
       for (let i = 0; i < this.motes.length && p.carried < this.capacity(); ) {
         const m = this.motes[i];
         if (distXZ(m.pos, p.pos) <= t.pickup_radius && Math.abs(p.pos[1] - m.pos[1]) <= STD.pickDy) {
@@ -566,7 +568,7 @@ export class Game {
     }
 
     // 9. contact: drifters steal first, then shades hit (by id)
-    if (p.dead === 0) {
+    if (p.dead === 0 && !this.bench?.noDamage) {
       for (const d of [...this.drifters].sort(byId)) {
         if (d.state !== 'chase' || distXZ(d.pos, p.pos) > STD.drifterHit) continue;
         const amount = Math.min(STD.drifterSteal, p.carried);
@@ -615,6 +617,7 @@ export class Game {
 
     // 11. win / lose (after every update of the tick; no early win)
     this.tick++;
+    if (this.bench?.noEnd) return;
     if (p.flames <= 0) this.finish('lost', 'no_flames');
     else if (this.timeLeft() <= 1e-9) {
       const lit = this.lanterns.filter((l) => l.lit);

@@ -3,3 +3,6 @@ dist/
 .env
 *.local
 out*.jsonl
+data/
+release/
+test-results/

@@ -10,5 +10,10 @@
     "test": "node --test tests/*.test.js",
     "proof": "node scripts/proof.js"
   },
-  "engines": { "node": ">=18" }
+  "engines": {
+    "node": ">=18"
+  },
+  "devDependencies": {
+    "playwright": "^1.48.2"
+  }
 }
