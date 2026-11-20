@@ -1,0 +1,25 @@
+✔ C1 tick-0 snapshot: start at origin, 5 lanterns, full night, no input applied (55.818ms)
+✔ C2 snapshots every 10 ticks by default, end line last, time_left counts down (110.8269ms)
+✔ C3 determinism: same seed → identical output; different seed → different world (187.2395ms)
+✔ C4 movement: player_speed m/s, camera yaw rotation, normalisation (226.383ms)
+✔ C5 jump on rising edge: goes up and lands back on y=0 (54.9115ms)
+✔ C6 mote pickup within pickup_radius: event, carried, score (56.3988ms)
+✔ C7 carry_capacity: cannot pick when full (53.9399ms)
+✔ C8 deposit partial then light lantern on interact (rising edge) (109.9034ms)
+✔ C9 interact outside interact_radius does nothing (54.5984ms)
+✔ C10 win: lighting the last lantern → won/all_lit with time + flame bonus (55.3607ms)
+✔ C11 pulse: costs light, stuns + pushes shades in radius, cooldown, needs enough light (174.8914ms)
+✔ C12 shade chases at shade_speed and hits: lose flame, drop ratio, invulnerability (112.0911ms)
+✔ C13 lose: no flames → lost/no_flames; dawn → lost/dawn (110.8591ms)
+✔ C14 shades never enter safe_radius of a lit lantern; player inside is safe (64.1688ms)
+✔ C15 random spawning: shades spawn with events and unique ids; off when random_shades=false (161.8062ms)
+✔ C16 errors: malformed inputs/scenario → exit 2; bad usage → non-zero + stderr (331.7461ms)
+✔ C17 coordinates rounded to 3 decimals (54.5419ms)
+ℹ tests 17
+ℹ suites 0
+ℹ pass 17
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2060.9752
