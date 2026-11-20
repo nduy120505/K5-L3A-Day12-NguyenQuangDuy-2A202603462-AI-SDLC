@@ -13,7 +13,7 @@ npm install      # không có dependency, chỉ kiểm tra môi trường
 npm start        # mở http://localhost:5173 trên trình duyệt
 ```
 
-Game là trang web tĩnh, dùng three.js 0.170.0 tải từ CDN jsDelivr nên **cần Internet** khi mở game. Chế độ headless và test **không** cần mạng.
+Game là trang web tĩnh. three.js 0.170.0 đã được đóng gói sẵn trong `vendor/`, nên **chạy offline được**, không cần Internet.
 
 ## Điều khiển
 

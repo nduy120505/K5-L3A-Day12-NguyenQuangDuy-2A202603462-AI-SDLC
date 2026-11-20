@@ -2,7 +2,7 @@
 
 ## Lệnh
 - Không có dependency npm. Chạy game: `npm start` (http://localhost:5173) · Test: `npm test`
-- three.js nạp từ CDN qua importmap trong `index.html` (ổ C: đầy, không cài được node_modules)
+- three.js 0.170.0 đóng gói sẵn ở `vendor/`, nạp qua importmap trong `index.html` (không cần mạng, không cần node_modules)
 - Headless: `node src/headless.js --seed 1 --night 1 --ticks 600 --out out.jsonl [--scenario f.json] [--inputs f.json]`
 - Bằng chứng: `npm run proof` (ghi vào `docs/proof/`)
 
