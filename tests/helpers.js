@@ -15,9 +15,9 @@ const tmp = (name) => path.join(tmpDir, `${process.pid}-${n++}-${name}`);
  * Run the real headless CLI (as the grader would).
  * scenario / inputs may be objects (written to JSON) or raw strings.
  */
-export function runHeadless({ seed = 1, ticks = 60, scenario, inputs, every, extra = [] } = {}) {
+export function runHeadless({ seed = 1, night = 1, ticks = 60, scenario, inputs, every, extra = [] } = {}) {
   const out = tmp('out.jsonl');
-  const args = ['src/headless.js', '--seed', String(seed), '--night', '1', '--ticks', String(ticks), '--out', out];
+  const args = ['src/headless.js', '--seed', String(seed), '--night', String(night), '--ticks', String(ticks), '--out', out];
   if (every) args.push('--snapshot-every', String(every));
   for (const [flag, val] of [['--scenario', scenario], ['--inputs', inputs]]) {
     if (val === undefined) continue;
@@ -42,8 +42,8 @@ export function runHeadless({ seed = 1, ticks = 60, scenario, inputs, every, ext
 
 /** Scenario with nothing random: empty island unless specified. */
 export function quiet(extra = {}) {
-  return { random_motes: false, random_shades: false, motes: [], shades: [], ...extra };
+  return { random_motes: false, random_shades: false, random_drifters: false, wind_enabled: false, motes: [], shades: [], drifters: [], ...extra };
 }
 
-export const allLitExcept = (id) =>
-  ['L1', 'L2', 'L3', 'L4', 'L5'].filter((x) => x !== id).map((x) => ({ id: x, lit: true }));
+export const allLitExcept = (id, n = 5) =>
+  Array.from({ length: n }, (_, i) => `L${i + 1}`).filter((x) => x !== id).map((x) => ({ id: x, lit: true }));

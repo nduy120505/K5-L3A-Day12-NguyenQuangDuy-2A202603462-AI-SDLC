@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-// Headless runner — Test Contract v1.0.
-// node src/headless.js --seed <int> --night 1 [--scenario f.json] [--inputs f.json]
+// Headless runner — Test Contract v1.1.
+// node src/headless.js --seed <int> --night <1|2|3> [--scenario f.json] [--inputs f.json]
 //                      --ticks <int> --out <file.jsonl> [--snapshot-every <int>]
 import fs from 'node:fs';
 import path from 'node:path';
@@ -37,7 +37,7 @@ function parseArgs(argv) {
   }
   if (opts.ticks === undefined || opts.ticks < 0) throw new UsageError('--ticks <int >= 0> is required');
   if (!opts.out) throw new UsageError('--out <file.jsonl> is required');
-  if (opts.night !== 1) throw new UsageError(`night ${opts.night} not available (only night 1)`);
+  if (![1, 2, 3].includes(opts.night)) throw new UsageError(`--night must be 1, 2 or 3 (got ${opts.night})`);
   if (opts.snapshotEvery < 1) throw new UsageError('--snapshot-every must be >= 1');
   return opts;
 }
@@ -64,6 +64,7 @@ export function run(opts) {
   const lines = [];
   const game = new Game(contract.tuning, {
     seed: opts.seed,
+    night: opts.night,
     scenario,
     onEvent: (e) => lines.push(JSON.stringify(e)),
   });
@@ -73,22 +74,22 @@ export function run(opts) {
   let lastSnap = -1;
   const snap = () => {
     lines.push(JSON.stringify(game.snapshot()));
-    lastSnap = game.steps;
+    lastSnap = game.tick;
   };
+  lines.push(JSON.stringify({ type: 'event', tick: 0, name: 'night_start', data: { night: opts.night } }));
   snap(); // tick 0: after scenario, before any input
   for (let k = 0; k < opts.ticks && game.state === 'playing'; k++) {
     while (fi < frames.length && frames[fi].tick === k) {
       const f = frames[fi++];
-      for (const key of ['move', 'cam_yaw_deg', 'jump', 'interact', 'pulse', 'dash']) {
+      for (const key of ['move', 'cam_yaw_deg', 'jump', 'interact', 'pulse', 'dash', 'pause']) {
         if (f[key] !== undefined) input[key] = f[key];
       }
     }
-    while (fi < frames.length && frames[fi].tick < k) fi++;
     game.step(input);
-    if (game.steps % opts.snapshotEvery === 0) snap();
+    if (game.tick % opts.snapshotEvery === 0) snap();
   }
-  if (lastSnap !== game.steps) snap(); // final state always present
-  lines.push(JSON.stringify({ type: 'end', ticks: game.steps, state: game.state, score: game.score }));
+  if (lastSnap !== game.tick) snap(); // final state always present
+  lines.push(JSON.stringify({ type: 'end', ticks: game.tick, state: game.state, score: game.score }));
   fs.writeFileSync(opts.out, lines.join('\n') + '\n');
   return game;
 }
