@@ -18,6 +18,7 @@
     .flame.off { background: #5B5F6E; box-shadow: none; opacity: .5; }
     #hClock { top: 10px; left: 50%; transform: translateX(-50%); font-size: 30px; font-weight: 800; letter-spacing: 1px; }
     #hClock.danger { color: var(--danger); animation: blink .8s steps(2) infinite; }
+    body.cb { --danger: #FFFFFF; }
     @keyframes blink { 50% { opacity: .25; } }
     #hRight { top: 12px; right: 12px; text-align: right; }
     #hRight b { color: var(--gold); font-size: 22px; }
@@ -55,6 +56,7 @@
     <div id="hStatus" class="hud"></div>
     <div id="hHint" class="hud"></div>
     <div id="hMotes" class="hud"></div>
+    <div id="hCap" class="hud" style="bottom:46px;left:50%;transform:translateX(-50%);font-weight:700"></div>
     <div id="hCd" class="hud"><div class="cd" id="cdDash"><span>Lướt<br>Shift</span></div><div class="cd" id="cdPulse"><span>Tỏa sáng<br>F</span></div></div>
     <div id="hArrow" class="hud"></div>
   </div>
@@ -92,6 +94,7 @@
     <h1>Cài đặt</h1>
     <label>Âm lượng <input type="range" id="sVol" min="0" max="1" step="0.05" /></label>
     <label>Độ nhạy chuột <input type="range" id="sSens" min="0.1" max="3" step="0.1" /></label>
+    <label>Bảng màu dễ phân biệt <input type="checkbox" id="sCb" /></label>
     <button class="btn" id="bBack">Xong</button>
   </div></div>
 

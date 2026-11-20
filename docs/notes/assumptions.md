@@ -65,3 +65,15 @@ Spec và tiêu chí nghiệm thu: [spec-phase2.md](spec-phase2.md).
 | Đom đóm rơi ra ngoài đảo | Giữ nguyên vị trí (có thể không nhặt được), hết hạn sau 480 tick | Hiếm gặp |
 | Tạm dừng trong bản có giao diện | Menu tạm dừng dừng hẳn vòng lặp sim; headless dùng input `pause` của core | Hai cách cho cùng một kết quả: logic đứng yên |
 | Tổng điểm (giao diện) | Tổng điểm các Đêm đã thắng; thua thì chơi lại Đêm đó, không cộng điểm | Ticket |
+
+## Phase 3 (Ticket-03 + Contract v1.2)
+Mô hình đèn và luật thắng: [ADR 0001](../adr/0001-lantern-fuel-and-dawn-win.md). Breaking changes: [CHANGELOG](../../CHANGELOG.md).
+
+| Chủ đề | Giả định |
+|---|---|
+| Đèn `wander` khi không có đèn yếu | Trôi 1 m/s về đèn **tắt** gần nhất, dừng cách 3 m; không có đèn tắt thì trôi ngẫu nhiên |
+| Tốc độ khi đi tới đèn yếu | Tốc độ đuổi (4 / 4.5 m/s) |
+| `fuel_drain` | Một sự kiện cho mỗi Bóng Mực, mỗi 60 tick tính từ lúc nó vào `drain` |
+| Đèn `lit: true` trong scenario | `ever_lit` mặc định true; fuel mặc định 100 |
+| Điểm thêm trong `tuning.score` | `per_relight: 40`, `per_stun_drain: 15`, `per_lit_at_dawn: 50` (khóa thêm, không thay khóa cũ) |
+| Thắp/châm khi Bóng Mực ở trong 6 m | Dùng chung một cơ chế đẩy ra ≤ 30 tick, không gây sát thương |

@@ -39,3 +39,19 @@ Công cụ: **Claude Code** (VS Code extension), model Claude Opus 5.5. Harness:
 | Phase | Token | Ghi chú |
 |---|---|---|
 | 2 | _điền từ `/cost`_ | Một agent duy nhất; viết core theo đúng thứ tự tick một lần để tránh sửa đi sửa lại; test bắt lỗi thay cho việc đoán |
+
+## Phase 3 (Change Request "Đèn cạn dầu", 30 phút)
+
+| Bước | Việc AI làm | Tôi kiểm tra / quyết định |
+|---|---|---|
+| Phân tích | Liệt kê các luật bị [THAY THẾ] và những test/tài liệu bị ảnh hưởng (C1, C2, C8, C10, C11, P4, P17) | Duyệt |
+| Core | Dầu lưu bằng số nguyên 1/60; trạng thái `drain`; `secureZone()` dùng chung cho thắp và châm; luật thắng lúc bình minh; sức chứa; điểm mới | Đọc diff |
+| Test | C10/C11 **thay thế** (có chú thích); C1/C2/C8/P4/P17 đổi số kèm lý do; thêm 12 test F1–F12. Không skip test nào | 47/47 xanh |
+| Lỗi AI mắc, test bắt được | 4 test do AI viết sai spec: (1) `lantern_lit` thiếu `relight`; (2) quên rằng dầu bị trừ ở bước 2 **trước** bước tương tác, nên đèn 100 vẫn nhận 1 đom đóm; (3) quên rằng Bóng Mực cũng hút trong tick châm dầu (69.9, không phải 70); (4) Bóng Mực trong test không kịp chạm Mây | Sửa test theo spec, ghi lý do trong test |
+| Tài liệu | ADR 0001, CHANGELOG (breaking changes), spec/giả định | |
+| Bằng chứng | Bot được dạy châm và thắp lại nhưng vẫn thua 9/9 theo luật mới (ghi trung thực) | Test là bằng chứng chính |
+
+### Token / chi phí (ước tính)
+| Phase | Token | Ghi chú |
+|---|---|---|
+| 3 | _điền từ `/cost`_ | Patch có mục tiêu (script Python thay từng đoạn) thay vì viết lại cả file |

@@ -14,7 +14,9 @@
 - `src/main.js` và `src/render/` chỉ đọc state. Phần sáng tạo (đèn trời, lá bay, âm thanh) chỉ nằm ở đây, không làm đổi output headless.
 
 ## Quy tắc
-- Contract v1.1: tên trạng thái Bóng Mực phải là `spawning|wander|chase|recoil|stunned`. Gió Lạc là `idle|chase|flee|removed`.
+- Contract v1.2: trạng thái Bóng Mực là `spawning|wander|chase|recoil|stunned|drain`. Gió Lạc là `idle|chase|flee|removed`.
+- Dầu đèn là số nguyên 1/60 (`fuelU`); chỉ làm tròn khi xuất (1 chữ số). Trừ dầu ở bước 2, đèn tắt ngay sau đó. Không còn thắng sớm (ADR 0001).
+- Luật bị thay thì cập nhật hoặc thay test **kèm chú thích lý do**, không skip; ghi breaking change vào `CHANGELOG.md`.
 - Đổi luật → cập nhật `docs/notes/assumptions.md`, `docs/notes/spec-phase2.md` và test. Mỗi tính năng mới phải có ≥ 1 scenario headless.
 - Không viết test "luôn đạt"; không sửa tay `docs/proof/`. Sửa test thì ghi lý do vào `docs/notes/ai-log.md`.
 - Chạy `npm test` trước khi báo xong. Không commit `.env`/key.

@@ -1,6 +1,6 @@
 # Đảo Đèn Lồng
 
-> **Video demo:** _(sẽ thêm ở Phase 4)_ · **Bằng chứng:** [Phase 1](docs/proof/phase-1/README.md) · [Phase 2](docs/proof/phase-2/README.md) · **Spec Phase 2:** [docs/notes/spec-phase2.md](docs/notes/spec-phase2.md) · Tài liệu lab gốc: [docs/lab/](docs/lab/README.md)
+> **Video demo:** _(sẽ thêm ở Phase 4)_ · **Bằng chứng:** [Phase 1](docs/proof/phase-1/README.md) · [Phase 2](docs/proof/phase-2/README.md) · [Phase 3](docs/proof/phase-3/README.md) · **Spec Phase 2:** [docs/notes/spec-phase2.md](docs/notes/spec-phase2.md) · **ADR:** [0001 đèn có dầu](docs/adr/0001-lantern-fuel-and-dawn-win.md) · [CHANGELOG](CHANGELOG.md) · Tài liệu lab gốc: [docs/lab/](docs/lab/README.md)
 
 Game 3D góc nhìn thứ ba. **Mây**, người giữ đèn nhỏ tuổi đội nón lá, gom đom đóm để thắp lại các **Đèn Lồng Lớn** qua **3 Đêm**: Đảo Bến (5 đèn), Đảo Cau (2 đảo nối bằng cầu tre, 6 đèn) và Đảo Chuông (3 tầng, 7 đèn, có gió mạnh). Trên đường đi phải né và xua **Bóng Mực** trong sương đen, giữ đom đóm khỏi **Gió Lạc**, và nhặt **Bùa Gió**.
 
@@ -28,7 +28,10 @@ Game là trang web tĩnh. three.js 0.170.0 đã được đóng gói sẵn trong
 | `Esc` / `P` | Tạm dừng: Tiếp tục / Chơi lại Đêm / Cài đặt / Về menu |
 | `Enter` | Xác nhận màn giới thiệu và màn kết quả |
 
-## Luật chơi và cách tính điểm (số chuẩn Ticket-02)
+## Luật chơi và cách tính điểm (Ticket-03, contract v1.2)
+
+**Mục tiêu: giữ đảo sáng tới bình minh.** Mỗi đèn sáng có **dầu 100**, hao 1/s. Bấm `E` ở đèn đang sáng để châm (+10 dầu mỗi đom đóm). Hết dầu thì đèn tắt; thắp lại chỉ cần 5. Đèn dưới 30 dầu nhấp nháy, mất vùng an toàn, và Bóng Mực sẽ tới hút dầu. Khi hết giờ, cần ít nhất **60% đèn đang sáng** (3/5, 4/6, 5/7) để thắng. Sức chứa tăng thêm 2 sau mỗi lần thắp thành công (tối đa 20).
+
 
 - Tự nhặt đom đóm khi ở trong 1.0 m (chênh cao ≤ 1.5 m), mang tối đa **10**. Mỗi đèn cần **10**, nạp nhiều lần được.
 - Đèn đã thắp tạo vùng an toàn bán kính **6 m**, Bóng Mực không vào được.
@@ -36,16 +39,16 @@ Game là trang web tĩnh. three.js 0.170.0 đã được đóng gói sẵn trong
 - Tỏa sáng: tốn 3, choáng Bóng Mực trong 5 m trong 2 s và đẩy chúng lùi 4 m; hồi chiêu 3 s. Lướt: 14 m/s trong 0.2 s, hồi chiêu 1.5 s.
 - Rơi khỏi đảo: −1 Ngọn Lửa, mất hết đom đóm, hồi sinh ở điểm xuất phát.
 - Gió Lạc cướp 3 đom đóm khi Mây mang ≥ 5. Tỏa sáng vào nó để lấy lại.
-- **Thắng** khi thắp đủ đèn. **Thua** khi hết lửa hoặc trời sáng (300 / 330 / 360 s).
+- **Thắng** khi bình minh tới (240 / 270 / 300 s) mà đủ ≥ 60% đèn sáng. **Thua** khi hết lửa, hoặc bình minh mà thiếu đèn.
 
 | Sự kiện | Điểm |
 |---|---|
-| Mỗi đom đóm **nạp** vào đèn | +10 |
-| Thắp 1 đèn | +100 |
-| Mỗi Bóng Mực trúng Tỏa sáng | +5 |
-| Khi thắng: mỗi giây còn lại / mỗi Ngọn Lửa còn lại | +2 / +50 |
+| Mỗi đom đóm nạp vào đèn (thắp, thắp lại, châm dầu) | +5 |
+| Thắp lần đầu / thắp lại | +100 / +40 |
+| Bóng Mực trúng Tỏa sáng (đang hút dầu) | +5 (+15) |
+| Bình minh (khi thắng): mỗi đèn sáng / mỗi Ngọn Lửa | +50 + floor(dầu) / +50 |
 
-Tổng điểm là tổng điểm các Đêm đã thắng. Mọi con số lấy từ [game.contract.json](game.contract.json) (contract **v1.1**); bản đồ chuẩn nằm trong [src/core/maps.js](src/core/maps.js). Giả định ở [docs/notes/assumptions.md](docs/notes/assumptions.md).
+Tổng điểm là tổng điểm các Đêm đã thắng. Mọi con số lấy từ [game.contract.json](game.contract.json) (contract **v1.2**); bản đồ chuẩn nằm trong [src/core/maps.js](src/core/maps.js). Giả định ở [docs/notes/assumptions.md](docs/notes/assumptions.md).
 
 ## Chế độ headless (Test Contract v1.0)
 
@@ -62,8 +65,8 @@ node src/headless.js --seed 1 --night 1|2|3 --ticks 600 --out out.jsonl \
 ## Test và bằng chứng
 
 ```bash
-npm test         # 35 test (hồi quy Phase 1 và mỗi tính năng mới), chạy CLI headless thật
-npm run proof -- phase-2   # sinh docs/proof/phase-2/ (test, bot chơi 3 Đêm, tất định, mã lỗi, tốc độ)
+npm test         # 47 test (hồi quy, Phase 2, Phase 3), chạy CLI headless thật
+npm run proof -- phase-3   # sinh docs/proof/phase-3/ (test, bot chơi 3 Đêm, tất định, mã lỗi, tốc độ)
 ```
 
 ## Cấu trúc
@@ -90,6 +93,7 @@ Tất cả chỉ nằm ở lớp hiển thị (`src/main.js`), **không** đổi
 - **Đèn trời:** mỗi khi một Đèn Lồng Lớn được thắp, vài chiếc đèn trời nhỏ bay lên bầu trời.
 - **Đảo ấm dần lên:** sương tan bớt, trời ấm dần theo số đèn đã thắp (ánh sáng môi trường theo đúng công thức chuẩn).
 - **Lời Ông Đăng** cho từng Đêm, lá bay báo trước gió, Gió Lạc là dải lụa uốn lượn, Bùa Gió đỏ viền vàng xoay tròn.
+- **Chế độ mù màu** (Cài đặt → Bảng màu dễ phân biệt); đèn tắt xẹp xuống và có vết rách giấy.
 - **Âm thanh tổng hợp bằng WebAudio** (nhạc ngũ cung ban đêm), không dùng file ngoài.
 - Vòng sáng vàng trên mặt đất cho thấy vùng an toàn quanh đèn đã thắp.
 - Gợi ý theo ngữ cảnh ("Nhấn E để nạp...") và màn mở đầu có lời dẫn truyện.

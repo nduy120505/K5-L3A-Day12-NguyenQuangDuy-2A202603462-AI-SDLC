@@ -82,15 +82,16 @@ function botInputs(night, seed, maxTicks) {
   for (let k = 0; k < maxTicks && g.state === 'playing'; k++) {
     const p = g.player;
     const d = (a) => Math.hypot(a.pos[0] - p.pos[0], a.pos[2] - p.pos[2]) + Math.abs(a.pos[1] - p.pos[1]) * 4;
-    const lantern = g.lanterns.filter((l) => !l.lit).sort((a, b) => d(a) - d(b))[0];
-    const need = lantern ? T.lantern_cost - lantern.deposited : 0;
+    // Ticket-03: keep lanterns alive — unlit ones, or lit ones below 60 fuel
+    const lantern = g.lanterns.filter((l) => !l.lit || l.fuelU < 60 * 60).sort((a, b) => d(a) - d(b))[0];
+    const need = !lantern ? 0 : lantern.lit ? Math.ceil((g.FU.max - lantern.fuelU) / g.FU.perMote) : (lantern.everLit ? T.relight_cost : T.lantern_cost) - lantern.deposited;
     const near = (q, r) => Math.hypot(q.pos[0] - p.pos[0], q.pos[2] - p.pos[2]) < r;
     const threat = g.shades.find((s) => (s.state === 'chase' || s.state === 'wander') && near(s, 3.5));
     const thief = g.drifters.find((x) => x.state === 'chase' && near(x, 4));
     inp.pulse = !!(threat || thief) && p.carried >= T.pulse_cost && p.pulseCd === 0 && !prev?.pulse;
     inp.dash = !!threat && !inp.pulse && p.dashCd === 0 && !prev?.dash;
-    const goLantern = p.carried >= Math.min(need, T.carry_capacity) || g.motes.length === 0;
-    const target = goLantern ? lantern : [...g.motes].sort((a, b) => d(a) - d(b))[0];
+    const goLantern = lantern && (p.carried >= Math.min(need, g.capacity()) || g.motes.length === 0 || (lantern.lit && lantern.fuelU < 25 * 60 && p.carried > 0));
+    const target = goLantern ? lantern : [...g.motes].sort((a, b) => d(a) - d(b))[0] ?? g.lanterns[0];
     inp.interact = false;
     if (target === lantern && near(lantern, T.interact_radius * 0.8) && Math.abs(lantern.pos[1] - p.pos[1]) < 1) {
       inp.move = [0, 0];
