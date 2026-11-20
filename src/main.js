@@ -416,7 +416,9 @@ const tmpV = new THREE.Vector3();
 let windWarnShown = false;
 function render(now) {
   const t = now / 1000, g = app.game, v = app.view, p = g.player;
-  // player
+  // player (jump SFX detected render-side: left the ground moving up)
+  if (v.wasGrounded && !p.grounded && p.vel[1] > 0 && !p.launch) audio.sfx('jump');
+  v.wasGrounded = p.grounded;
   v.player.g.position.set(...p.pos);
   v.player.g.rotation.y = Math.atan2(p.facing[0], p.facing[1]);
   v.player.g.visible = p.dead === 0 && (p.invuln === 0 || Math.floor(t * 12) % 2 === 0);

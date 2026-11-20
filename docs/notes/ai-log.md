@@ -22,3 +22,20 @@ Công cụ: **Claude Code** (VS Code extension), model Claude Opus 5.5. Harness:
 | Phase | Token | Ghi chú |
 |---|---|---|
 | 1 | _điền từ lệnh `/cost` của Claude Code_ | Tiết kiệm: một agent duy nhất, không dùng subagent; test chạy CLI để tránh vòng sửa mù; lõi không dependency |
+
+## Phase 2
+
+| Bước | Việc AI làm | Tôi kiểm tra / quyết định |
+|---|---|---|
+| Đọc ticket | Xếp ưu tiên: core + contract v1.1 (30 điểm test ẩn) → test cho từng tính năng → giao diện | Duyệt |
+| Core | Viết lại `game.js` theo đúng 12 bước trong một tick; thêm `maps.js` cho 3 bản đồ chuẩn | Đọc diff |
+| Test | 35 test (17 hồi quy theo số chuẩn và 18 test tính năng mới), tất cả chạy CLI headless | `npm test` xanh |
+| Lỗi AI mắc, test bắt được | (1) Quỹ đạo nhảy dùng Euler nên chạm đất trễ 2 tick so với 0.7 s; đổi sang công thức chính xác. (2) Recoil chỉ lùi 59/60 bước. (3) Tỏa Sáng làm Gió Lạc `idle` bỏ chạy, trái spec. (4) Bốn test do AI viết sai: làm tròn −10.0003 thành −10, Bóng Mực không bị choáng đuổi kịp và đánh người chơi, … | Sửa code, sửa test kèm lý do |
+| Bằng chứng | Bot chơi cả 3 Đêm × 3 seed; thêm né tránh và lướt sau khi bot ngây thơ thua 9/9 | Kết quả thật: thắng 1/9 |
+| Giao diện | Menu và chuỗi Đêm, tạm dừng, cài đặt, âm thanh WebAudio, HUD, bảng màu, đồng hồ FPS | **Cần chơi tay và đo FPS** |
+| Harness | Cập nhật CLAUDE.md cho phạm vi mới, thêm skill `proof` | |
+
+### Token / chi phí (ước tính)
+| Phase | Token | Ghi chú |
+|---|---|---|
+| 2 | _điền từ `/cost`_ | Một agent duy nhất; viết core theo đúng thứ tự tick một lần để tránh sửa đi sửa lại; test bắt lỗi thay cho việc đoán |

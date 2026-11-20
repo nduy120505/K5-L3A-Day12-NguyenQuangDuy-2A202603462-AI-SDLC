@@ -1,0 +1,43 @@
+✔ C1 tick-0: night_start event, start at origin, 5 lanterns at standard positions, full night (75.2606ms)
+✔ C2 snapshots every 10 ticks by default, end line last, time_left counts down (164.384ms)
+✔ C3 determinism on every night: same seed → identical; different seed → different (1223.6198ms)
+✔ C4 movement 6 m/s, camera yaw, normalisation, velocity reported (493.1454ms)
+✔ C5 jump 7 m/s, gravity 20: apex ≈ 1.225 m, lands after ≈ 0.7 s, only from ground (91.8478ms)
+✔ C6 mote pickup: XZ ≤ 1.0 and height ≤ 1.5; no score until deposited (197.6233ms)
+✔ C7 carry capacity 10 (111.574ms)
+✔ C8 deposit min(carried, missing), +10 per deposited mote, lantern remembers progress (193.7726ms)
+✔ C9 interact radius 2.0; nearest unlit lantern, tie → smaller id (199.3426ms)
+✔ C10 win: last lantern → won/all_lit, bonus floor(seconds left)×2 + 50×flames (101.6777ms)
+✔ C11 win on the exact tick time runs out beats dawn (98.5868ms)
+✔ C12 pulse: 3 motes, radius 5 (3D from feet+0.8), stun 120 ticks, push 4 m over 15 ticks, cooldown 3 s, +5 each (194.3561ms)
+✔ C13 stun lasts exactly 120 ticks, then shade chases again (97.9324ms)
+✔ C14 shade chases at 4 m/s; hit: −1 flame, drop floor(n/2) in ring 1.5–2.5 m (ttl 480), invuln 90, recoil 2 m / 60 ticks (196.5156ms)
+✔ C15 lose: no flames → lost/no_flames; dawn → lost/dawn (187.7919ms)
+✔ C16 safe zone: shades blocked at 6 m edge of lit lanterns (109.7007ms)
+✔ C17 errors: malformed inputs/scenario → exit 2; bad usage → non-zero + stderr (639.8175ms)
+✔ P1 dash: 14 m/s for 12 ticks, cooldown 1.5 s from dash start, event dash (87.4565ms)
+✔ P2 dash with no input uses facing (+Z at start); in the air it keeps altitude (165.5856ms)
+✔ P3 fall off the island: −1 flame, lose all motes, 60-tick wait, respawn at start with invuln (176.0815ms)
+✔ P4 pause: tick advances, sim_tick/time freeze, state "paused", events paused/resumed (81.312ms)
+✔ P5 Gió Lạc: idle → chase (carry ≥ 5, ≤ 15 m) → steals min(3, n) → flee 240 ticks → removed; invuln does not protect (173.9538ms)
+✔ P6 pulse vs Gió Lạc: chase → flee without stealing; flee with loot → drops it (drifter_drop) and vanishes after 120 ticks (176.0045ms)
+✔ P7 Gió Lạc spawn schedule: night 2 at tick 1200 (D1), never on night 1 or when random_drifters=false (337.8651ms)
+✔ P8 Bùa Gió: pickup → 600 ticks, speed 7.2 m/s, dash without cooldown, respawns after 2700 ticks (324.4935ms)
+✔ P9 night 2 jump pad: launch 14 m/s up, 24 m/s toward the other island, land there ≈ 1.4 s later (101.5512ms)
+✔ P10 night 2 map: bridge connects the islands; stepping off it falls (209.1695ms)
+✔ P11 night 3 tiers: cliffs are walls, ramp climbs to Y=3, jump pad lands on tier 2 (Y=6), tower blocks (389.3657ms)
+✔ P12 night 3 wind: every 30 s a 5 s gust pushing 2 m/s; disabled by wind_enabled=false (231.7863ms)
+✔ P13 shade schedule: 2 at tick 300 (spawning), then every 8/7/6 s; ≥ 15 m from player; ids S1, S2, … (345.2718ms)
+✔ P14 motes: +1 at tick 240 on a free point; dropped motes expire after 480 ticks (216.1533ms)
+✔ P15 shade states: wander beyond 12 m, chase ≤ 12 m, gives up beyond 18 m (283.3075ms)
+✔ P16 lantern lit with a shade inside → pushed to the edge within 30 ticks, no damage meanwhile (98.1819ms)
+✔ P17 nights 2 and 3: lantern ids/positions, durations, charms, flames refilled (173.4917ms)
+✔ P18 performance: a full night 3 (21 600 ticks) runs headless in ≤ 30 s (384.2198ms)
+ℹ tests 35
+ℹ suites 0
+ℹ pass 35
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 4490.2939
