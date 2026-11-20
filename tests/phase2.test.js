@@ -46,7 +46,7 @@ test('P4 pause: tick advances, sim_tick/time freeze, state "paused", events paus
   assert.equal(r.snaps[20].sim_tick, 10);
   assert.deepEqual(r.snaps[20].player.pos, r.snaps[11].player.pos);
   assert.equal(r.snaps[40].sim_tick, 20);
-  assert.ok(near(r.snaps[40].time_left_s, 300 - 20 / 60));
+  assert.ok(near(r.snaps[40].time_left_s, 240 - 20 / 60));
 });
 
 test('P5 Gió Lạc: idle → chase (carry ≥ 5, ≤ 15 m) → steals min(3, n) → flee 240 ticks → removed; invuln does not protect', () => {
@@ -187,19 +187,19 @@ test('P17 nights 2 and 3: lantern ids/positions, durations, charms, flames refil
   const n2 = runHeadless({ night: 2, ticks: 0 }).snaps[0];
   assert.deepEqual(n2.lanterns.map((l) => l.id), ['L1', 'L2', 'L3', 'L4', 'L5', 'L6']);
   assert.deepEqual(n2.lanterns[4].pos, [87, 0, -10]);
-  assert.equal(n2.time_left_s, 330);
+  assert.equal(n2.time_left_s, 270, 'Ticket-03: 270 s (was 330)');
   assert.deepEqual(n2.charms.map((c) => [c.id, c.available]), [['C1', true]]);
   const n3 = runHeadless({ night: 3, ticks: 0 }).snaps[0];
   assert.equal(n3.lanterns.length, 7);
   assert.deepEqual(n3.lanterns[0].pos, [0, 6, 6]);
-  assert.equal(n3.time_left_s, 360);
+  assert.equal(n3.time_left_s, 300, 'Ticket-03: 300 s (was 360)');
   assert.equal(n3.charms.length, 2);
   assert.equal(n3.player.flames, 3);
 });
 
-test('P18 performance: a full night 3 (21 600 ticks) runs headless in ≤ 30 s', () => {
+test('P18 performance: 21 600 ticks of night 3 run headless in ≤ 30 s', () => {
   const t0 = Date.now();
-  const r = runHeadless({ night: 3, ticks: 21600, every: 600, scenario: { player: { flames: 1000 } } });
+  const r = runHeadless({ night: 3, ticks: 21600, every: 600, scenario: { player: { flames: 1000 }, time_left_s: 400 } });
   const ms = Date.now() - t0;
   assert.equal(r.code, 0);
   assert.ok(ms < 30000, `${ms} ms`);

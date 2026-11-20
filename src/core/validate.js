@@ -2,7 +2,7 @@
 // Throws FormatError on malformed data → headless exits with code 2.
 export class FormatError extends Error {}
 
-const SHADE_STATES = ['spawning', 'wander', 'chase', 'recoil', 'stunned'];
+const SHADE_STATES = ['spawning', 'wander', 'chase', 'recoil', 'stunned', 'drain'];
 const DRIFTER_STATES = ['idle', 'chase', 'flee', 'removed'];
 const isObj = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 const isNum = (v) => typeof v === 'number' && Number.isFinite(v);
@@ -48,7 +48,7 @@ export function validateScenario(sc) {
     const p = sc.player;
     if (!isObj(p)) fail('scenario.player: expected object');
     if (p.pos !== undefined && !isVec3(p.pos)) fail('scenario.player.pos: expected [x,y,z]');
-    for (const k of ['carried', 'flames', 'invuln_ticks', 'dash_cd_ticks', 'pulse_cd_ticks', 'charm_ticks']) optCount(p, k, 'scenario.player');
+    for (const k of ['carried', 'flames', 'invuln_ticks', 'dash_cd_ticks', 'pulse_cd_ticks', 'charm_ticks', 'successful_lights']) optCount(p, k, 'scenario.player');
   }
   for (const k of ['random_motes', 'random_shades', 'random_drifters', 'wind_enabled']) optBool(sc, k, 'scenario');
   if (sc.motes !== undefined) {
@@ -73,6 +73,7 @@ export function validateScenario(sc) {
       optId(s, w, ids);
       if (s.state !== undefined && !SHADE_STATES.includes(s.state)) fail(`${w}.state: one of ${SHADE_STATES.join(', ')}`);
       optCount(s, 'state_ticks_left', w);
+      if (s.target_lantern_id !== undefined && typeof s.target_lantern_id !== 'string') fail(`${w}.target_lantern_id: string`);
     });
   }
   if (sc.drifters !== undefined) {
@@ -108,6 +109,9 @@ export function validateScenario(sc) {
       if (l.pos !== undefined && !isVec3(l.pos)) fail(`${w}.pos: expected [x,y,z]`);
       optCount(l, 'deposited', w);
       optBool(l, 'lit', w);
+      optBool(l, 'ever_lit', w);
+      optCount(l, 'relit_count', w);
+      if (l.fuel !== undefined && !(isNum(l.fuel) && l.fuel >= 0 && l.fuel <= 100)) fail(`${w}.fuel: number in [0, 100]`);
     });
   }
   if (sc.time_left_s !== undefined && (!isNum(sc.time_left_s) || sc.time_left_s <= 0)) fail('scenario.time_left_s: number > 0');
