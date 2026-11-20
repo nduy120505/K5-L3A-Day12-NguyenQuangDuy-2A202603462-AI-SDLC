@@ -1,5 +1,19 @@
 # Changelog
 
+## [v1.0.0 / phase-4] Ticket-04 "Bình minh: phát hành" (contract 1.3)
+
+### Thêm
+- **Benchmark** `node scripts/bench.js --seed 42 --duration 30 --out bench.json`: cảnh chuẩn (200 Bóng Mực, 100 đom đóm, L1–L3 sáng), Chromium 1280×720, vsync tắt, camera bay vòng; tính `avg_fps`, `p1_low_fps`, `frame_ms_p95`, `load_ms` đúng định nghĩa.
+- **Soak test** `node --expose-gc scripts/soak.js --seed 7 --nights 10 --out soak.json`.
+- **Bảng xếp hạng cục bộ**: nhập tên sau màn Bình Minh hoặc khi thua; lưu top 10 trên đĩa (`data/leaderboard.json`); màn hình Bảng xếp hạng; lệnh `--export-leaderboard`.
+- **Dễ tiếp cận**: đổi mọi phím (báo trùng, khôi phục mặc định), phụ đề và chỉ báo (Bóng Mực xuất hiện kèm mũi tên, gió, 10 s cuối, đèn dưới 30 dầu), giảm chuyển động, chữ ≥ 18 px và tùy chọn ×1.25.
+- Kiểm tra UI tự động bằng Playwright (`npm run ui-check`) kèm ảnh chụp; retro.
+
+### Thay đổi
+- Render Bóng Mực và đom đóm bằng **InstancedMesh** (p1_low từ 23.7 lên 64.3 FPS trên Intel UHD 620); HUD chỉ ghi DOM khi giá trị đổi; bỏ cấp phát mới trong mỗi khung hình.
+- `run_cmd` thành `node scripts/serve.js` (để nhận thêm tham số); `build_cmd` cài thêm Chromium cho bench.
+- Contract thêm `bench_cmd`, `soak_cmd`; `contract_version` lên 1.3. Không đổi luật hay output headless.
+
 ## [phase-3] Ticket-03 "Đèn cạn dầu" (contract 1.2)
 
 ### ⚠ Breaking changes

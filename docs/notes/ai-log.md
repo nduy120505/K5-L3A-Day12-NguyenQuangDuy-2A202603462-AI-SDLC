@@ -55,3 +55,19 @@ Công cụ: **Claude Code** (VS Code extension), model Claude Opus 5.5. Harness:
 | Phase | Token | Ghi chú |
 |---|---|---|
 | 3 | _điền từ `/cost`_ | Patch có mục tiêu (script Python thay từng đoạn) thay vì viết lại cả file |
+
+## Phase 4 (Release)
+
+| Bước | Việc AI làm | Tôi kiểm tra / quyết định |
+|---|---|---|
+| Kế hoạch | Bench bản web cần trình duyệt thật, nên chọn Playwright (devDependency); tận dụng nó để kiểm tra UI lần đầu | Duyệt |
+| Bench | Cảnh chuẩn ở `src/core/bench.js` (có test); cờ bench trong core (mặc định tắt); `scripts/bench.js` | Lần đầu p1_low **23.7 < 30**, sau đó tối ưu InstancedMesh, cache HUD, bỏ cấp phát, bỏ polling: **64.3** |
+| Soak | `scripts/soak.js`; lần đầu tỉ lệ bộ nhớ dao động 1.12–1.23 (có lần vượt 1.2) | Đo bằng GC ×3 và yield, giống nhau ở đầu và cuối: ổn định khoảng 1.13 qua 6 lần |
+| Leaderboard | Luật trong `src/core/leaderboard.js`; server lưu `data/leaderboard.json`; `--export-leaderboard` | Test L1–L3 |
+| Accessibility | Đổi phím có báo trùng, phụ đề và mũi tên Bóng Mực, giảm chuyển động, chữ ≥ 18 px, ×1.25 | Playwright UI check, 0 lỗi, có ảnh |
+| Lỗi quy trình | Commit một lần khi soak test đỏ (`grep` trong chuỗi `&&`) | Phát hiện ngay, sửa ở commit sau; ghi trong retro |
+
+### Token / chi phí (ước tính)
+| Phase | Token | Ghi chú |
+|---|---|---|
+| 4 | _điền từ `/cost`_ | |

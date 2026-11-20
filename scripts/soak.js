@@ -23,8 +23,12 @@ function args(argv) {
   return o;
 }
 
-const rssMb = () => {
-  if (global.gc) global.gc();
+// Same procedure at start and end: full GC ×3 with yields so V8 can release freed pages, then read RSS.
+const rssMb = async () => {
+  for (let i = 0; i < 3; i++) {
+    if (global.gc) global.gc();
+    await new Promise((r) => setTimeout(r, 30));
+  }
   return Math.round((process.memoryUsage().rss / 1048576) * 10) / 10;
 };
 
@@ -48,7 +52,7 @@ function playNight(tuning, night, seed) {
   return game;
 }
 
-function main() {
+async function main() {
   const o = args(process.argv.slice(2));
   const tuning = JSON.parse(fs.readFileSync(path.join(ROOT, 'game.contract.json'), 'utf8')).tuning;
   const t0 = performance.now();
@@ -61,7 +65,7 @@ function main() {
       if (i === 1) {
         // mem_start: RSS right after the first night is loaded
         new Game(tuning, { seed: o.seed + i, night });
-        memStart = rssMb();
+        memStart = await rssMb();
       }
       let g = playNight(tuning, night, o.seed + i);
       results.push(g.state === 'playing' ? 'timeout' : g.state);
@@ -72,7 +76,7 @@ function main() {
       process.stderr.write(`night ${i} crashed: ${e.stack}\n`);
     }
   }
-  const memEnd = rssMb();
+  const memEnd = await rssMb();
   const out = {
     nights: o.nights,
     crashes,
@@ -89,9 +93,7 @@ function main() {
   process.exit(crashes === 0 ? 0 : 1);
 }
 
-try {
-  main();
-} catch (e) {
+main().catch((e) => {
   process.stderr.write(`error: ${e.message}\n`);
   process.exit(1);
-}
+});
