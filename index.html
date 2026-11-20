@@ -9,37 +9,53 @@
   </script>
   <style>
     :root { --warm: #FFB347; --core: #FFE9B0; --gold: #F2C14E; --danger: #FF5A5F; --text: #F5F1E6; --sky: #0E1430; --fog: #1B2350; --red: #C8102E; }
-    html, body { margin: 0; height: 100%; overflow: hidden; background: var(--sky); font-family: system-ui, "Segoe UI", sans-serif; color: var(--text); user-select: none; }
+    html, body { margin: 0; height: 100%; overflow: hidden; background: var(--sky); font-family: system-ui, "Segoe UI", sans-serif; color: var(--text); user-select: none; font-size: 18px; }
+    body.large { font-size: 22.5px; }
+    body.large .hud { font-size: 22.5px; }
+    .hud { font-size: 18px; }
     canvas { display: block; }
     .hud { position: fixed; pointer-events: none; text-shadow: 0 1px 4px #000; }
     .panel { background: rgba(14, 20, 48, .55); border: 1px solid rgba(242, 193, 78, .35); border-radius: 12px; padding: 8px 14px; }
     #hFlames { top: 12px; left: 12px; display: flex; gap: 8px; }
     .flame { width: 20px; height: 26px; border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%; background: radial-gradient(circle at 50% 70%, var(--core), var(--warm) 55%, #e2582b); box-shadow: 0 0 12px var(--warm); }
     .flame.off { background: #5B5F6E; box-shadow: none; opacity: .5; }
-    #hClock { top: 10px; left: 50%; transform: translateX(-50%); font-size: 30px; font-weight: 800; letter-spacing: 1px; }
+    #hClock { top: 10px; left: 50%; transform: translateX(-50%); font-size: 1.7em; font-weight: 800; letter-spacing: 1px; }
     #hClock.danger { color: var(--danger); animation: blink .8s steps(2) infinite; }
     body.cb { --danger: #FFFFFF; }
     @keyframes blink { 50% { opacity: .25; } }
     #hRight { top: 12px; right: 12px; text-align: right; }
-    #hRight b { color: var(--gold); font-size: 22px; }
+    #hRight b { color: var(--gold); font-size: 1.2em; }
     #hMotes { bottom: 18px; left: 50%; transform: translateX(-50%); display: flex; gap: 5px; }
     .cell { width: 22px; height: 22px; border-radius: 50%; border: 1px solid rgba(255, 229, 138, .45); background: rgba(14, 20, 48, .6); }
     .cell.on { background: radial-gradient(circle, #FFF6C2, #FFE58A 60%, rgba(255, 229, 138, .2)); box-shadow: 0 0 10px #FFE58A; }
     #hCd { bottom: 14px; right: 14px; display: flex; gap: 10px; }
-    .cd { width: 54px; height: 54px; border-radius: 50%; display: grid; place-items: center; font-size: 11px; font-weight: 700; position: relative; background: conic-gradient(var(--gold) var(--p, 100%), rgba(14, 20, 48, .7) 0); }
+    .cd { width: 5em; height: 5em; border-radius: 50%; display: grid; place-items: center; font-size: 18px; font-weight: 700; position: relative; background: conic-gradient(var(--gold) var(--p, 100%), rgba(14, 20, 48, .7) 0); }
     .cd span { position: absolute; inset: 4px; border-radius: 50%; background: rgba(14, 20, 48, .9); display: grid; place-items: center; text-align: center; line-height: 1.1; }
-    #hHint { bottom: 64px; width: 100%; text-align: center; font-size: 19px; color: var(--core); }
-    #hToast { top: 64px; width: 100%; text-align: center; font-size: 20px; color: var(--core); transition: opacity .4s; }
-    #hStatus { top: 96px; width: 100%; text-align: center; font-size: 16px; }
+    #hHint { bottom: 80px; width: 100%; text-align: center; font-size: 1.1em; color: var(--core); }
+    #hToast { top: 64px; width: 100%; text-align: center; font-size: 1.1em; color: var(--core); transition: opacity .4s; }
+    #hStatus { top: 100px; width: 100%; text-align: center; font-size: 1em; }
+    #hCaption { left: 14px; bottom: 90px; max-width: 40%; display: flex; flex-direction: column; gap: 6px; }
+    #hCaption div { background: rgba(0, 0, 0, .65); padding: 4px 10px; border-radius: 6px; font-size: 1em; }
+    #hShadeArrow { width: 0; height: 0; border-left: 14px solid transparent; border-right: 14px solid transparent; border-bottom: 28px solid var(--rim, #7A3CFF); transform-origin: 50% 50%; display: none; }
+    body.cb #hShadeArrow { --rim: #00B3FF; }
+    body.reduce #hClock.danger { animation: none; }
     #hArrow { width: 0; height: 0; border-left: 14px solid transparent; border-right: 14px solid transparent; border-bottom: 28px solid var(--warm); filter: drop-shadow(0 0 6px var(--warm)); transform-origin: 50% 50%; display: none; }
-    #hFps { bottom: 4px; left: 6px; font-size: 11px; opacity: .55; }
+    #hFps { bottom: 4px; left: 6px; font-size: 18px; opacity: .55; }
     .overlay { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: radial-gradient(ellipse at center, rgba(27, 35, 80, .78), rgba(8, 10, 24, .94)); }
     .card { max-width: 600px; text-align: center; padding: 24px; }
-    .card h1 { color: var(--gold); margin: 0 0 6px; font-size: 42px; }
+    .card h1 { color: var(--gold); margin: 0 0 6px; font-size: 2.2em; }
+    .card { max-height: 92vh; overflow-y: auto; }
+    table.lb { width: 100%; border-collapse: collapse; margin: 10px 0; }
+    table.lb td, table.lb th { padding: 6px 10px; border-bottom: 1px solid rgba(245, 241, 230, .15); text-align: left; }
+    .keys { display: grid; grid-template-columns: 1fr auto; gap: 6px 14px; align-items: center; text-align: left; }
+    .keys button { min-width: 130px; padding: 6px 10px; border-radius: 8px; border: 1px solid rgba(245,241,230,.4); background: rgba(14,20,48,.8); color: var(--text); font-size: 18px; cursor: pointer; }
+    .keys button.dup { border-color: var(--danger); color: var(--danger); }
+    .warn { color: var(--danger); min-height: 1.4em; }
+    input[type=text] { font-size: 20px; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--gold); background: rgba(14,20,48,.9); color: var(--text); width: 240px; }
     .card h2 { color: var(--warm); margin: 0 0 12px; font-weight: 600; }
     .card p { line-height: 1.6; }
     .quote { font-style: italic; color: var(--core); border-left: 3px solid var(--gold); padding-left: 12px; text-align: left; }
-    .btn { display: block; margin: 10px auto 0; min-width: 220px; padding: 10px 22px; border-radius: 999px; background: var(--warm); color: #1B2350; font-weight: 800; cursor: pointer; border: 0; font-size: 16px; }
+    .btn { display: block; margin: 10px auto 0; min-width: 220px; padding: 10px 22px; border-radius: 999px; background: var(--warm); color: #1B2350; font-weight: 800; cursor: pointer; border: 0; font-size: 18px; }
     .btn.alt { background: transparent; color: var(--text); border: 1px solid rgba(245, 241, 230, .4); }
     .hidden { display: none !important; }
     kbd { background: rgba(255, 255, 255, .12); border-radius: 4px; padding: 1px 6px; }
@@ -57,17 +73,26 @@
     <div id="hHint" class="hud"></div>
     <div id="hMotes" class="hud"></div>
     <div id="hCap" class="hud" style="bottom:46px;left:50%;transform:translateX(-50%);font-weight:700"></div>
-    <div id="hCd" class="hud"><div class="cd" id="cdDash"><span>Lướt<br>Shift</span></div><div class="cd" id="cdPulse"><span>Tỏa sáng<br>F</span></div></div>
+    <div id="hCd" class="hud"><div class="cd" id="cdDash"><span id="cdDashL">Lướt<br>Shift</span></div><div class="cd" id="cdPulse"><span id="cdPulseL">Tỏa sáng<br>F</span></div></div>
     <div id="hArrow" class="hud"></div>
+    <div id="hShadeArrow" class="hud"></div>
+    <div id="hCaption" class="hud" aria-live="polite"></div>
   </div>
   <div id="hFps" class="hud"></div>
 
   <div id="menu" class="overlay"><div class="card">
     <h1>Đảo Đèn Lồng</h1>
     <p>Sương đen đã nuốt hết ánh sáng của quần đảo. Mây, người giữ đèn nhỏ tuổi, phải gom đom đóm và thắp lại các Đèn Lồng Lớn qua <b>ba đêm</b> trước khi bình minh lên.</p>
-    <p style="font-size:14px;opacity:.85"><kbd>WASD</kbd> đi · <kbd>Space</kbd> nhảy · <kbd>Shift</kbd> lướt · <kbd>E</kbd> nạp đèn · <kbd>F</kbd> tỏa sáng · chuột / <kbd>←</kbd><kbd>→</kbd> xoay camera · <kbd>Esc</kbd>/<kbd>P</kbd> tạm dừng</p>
+    <p style="opacity:.85"><kbd>WASD</kbd> đi · <kbd>Space</kbd> nhảy · <kbd>Shift</kbd> lướt · <kbd>E</kbd> nạp đèn · <kbd>F</kbd> tỏa sáng · chuột / <kbd>←</kbd><kbd>→</kbd> xoay camera · <kbd>Esc</kbd>/<kbd>P</kbd> tạm dừng</p>
     <button class="btn" id="bPlay">Bắt đầu</button>
+    <button class="btn alt" id="bBoard">Bảng xếp hạng</button>
     <button class="btn alt" id="bSettings1">Cài đặt</button>
+  </div></div>
+
+  <div id="board" class="overlay hidden"><div class="card" style="min-width:480px">
+    <h1>Bảng xếp hạng</h1>
+    <table class="lb"><thead><tr><th>#</th><th>Tên</th><th>Điểm</th><th>Đêm thắng</th><th>Ngày</th></tr></thead><tbody id="lbBody"></tbody></table>
+    <button class="btn" id="bBoardBack">Quay lại</button>
   </div></div>
 
   <div id="intro" class="overlay hidden"><div class="card">
@@ -78,6 +103,12 @@
 
   <div id="result" class="overlay hidden"><div class="card">
     <h1 id="rTitle"></h1><p id="rText"></p>
+    <div id="nameBox" class="hidden">
+      <p>Nhập tên để lưu điểm (3–12 ký tự: chữ, số, _ ; có thể gõ tiếng Việt)</p>
+      <input type="text" id="nameIn" maxlength="12" autocomplete="off" />
+      <div class="warn" id="nameErr"></div>
+      <button class="btn" id="bSave">Lưu điểm</button>
+    </div>
     <button class="btn" id="bNext"></button>
     <button class="btn alt" id="bMenu2">Về menu</button>
   </div></div>
@@ -95,6 +126,12 @@
     <label>Âm lượng <input type="range" id="sVol" min="0" max="1" step="0.05" /></label>
     <label>Độ nhạy chuột <input type="range" id="sSens" min="0.1" max="3" step="0.1" /></label>
     <label>Bảng màu dễ phân biệt <input type="checkbox" id="sCb" /></label>
+    <label>Giảm chuyển động <input type="checkbox" id="sReduce" /></label>
+    <label>Chữ lớn (×1.25) <input type="checkbox" id="sLarge" /></label>
+    <h2 style="margin-top:18px">Phím</h2>
+    <div class="keys" id="keyList"></div>
+    <div class="warn" id="keyWarn"></div>
+    <button class="btn alt" id="bKeysReset">Khôi phục mặc định</button>
     <button class="btn" id="bBack">Xong</button>
   </div></div>
 

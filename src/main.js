@@ -5,6 +5,7 @@ import { Game, DT, STD, emptyInput } from './core/game.js';
 import { MAPS } from './core/maps.js';
 import { buildWorld, PAL } from './render/world.js';
 import { benchScenario, benchCamera, frameStats } from './core/bench.js';
+import { addEntry, sortEntries, validName, normalizeName } from './core/leaderboard.js';
 import { Audio } from './render/audio.js';
 
 const contract = await (await fetch('game.contract.json')).json();
@@ -14,10 +15,13 @@ const QS = new URLSearchParams(location.search);
 const BENCH = QS.get('bench') ? { seed: +(QS.get('seed') || 42), duration: +(QS.get('duration') || 30), warmup: 3 } : null;
 
 // ---------- settings (persisted) ----------
-const settings = { volume: 0.6, sens: 1, cb: false };
+const DEFAULT_KEYS = { up: 'KeyW', down: 'KeyS', left: 'KeyA', right: 'KeyD', jump: 'Space', dash: 'ShiftLeft', interact: 'KeyE', pulse: 'KeyF', pause: 'Escape' };
+const KEY_LABELS = { up: 'Đi tới', down: 'Đi lùi', left: 'Sang trái', right: 'Sang phải', jump: 'Nhảy', dash: 'Lướt', interact: 'Tương tác (nạp/châm)', pulse: 'Tỏa sáng', pause: 'Tạm dừng' };
+const settings = { volume: 0.6, sens: 1, cb: false, reduce: false, large: false, keys: { ...DEFAULT_KEYS } };
 try {
   Object.assign(settings, JSON.parse(localStorage.getItem('ddl-settings') || '{}'));
 } catch {}
+settings.keys = { ...DEFAULT_KEYS, ...(settings.keys || {}) };
 const saveSettings = () => {
   try {
     localStorage.setItem('ddl-settings', JSON.stringify(settings));
@@ -43,7 +47,7 @@ addEventListener('resize', () => {
   renderer.setSize(innerWidth, innerHeight);
 });
 const ambient = new THREE.AmbientLight('#aab4ff', 0.15);
-const moon = new THREE.DirectionalLight('#9fb0ff', 0.35);
+const moon = new THREE.DirectionalLight('#9fb0ff', 0.75);
 moon.position.set(-30, 60, -20);
 scene.add(ambient, moon);
 // stars
@@ -195,6 +199,7 @@ const phaseOf = (id) => {
 
 // ---------- app state ----------
 const app = { mode: 'menu', night: 1, totals: {}, game: null, view: null, world: null, settingsFrom: 'menu' };
+window.__ddl = app; // read-only handle for the automated UI check (scripts/ui-check.js)
 const input = emptyInput();
 const keys = new Set();
 let camYaw = 0, acc = 0, simT = 0;
@@ -207,7 +212,7 @@ const INTRO = {
 };
 
 function show(id) {
-  for (const o of ['menu', 'intro', 'result', 'pause', 'settings']) $(o).classList.toggle('hidden', o !== id);
+  for (const o of ['menu', 'intro', 'result', 'pause', 'settings', 'board']) $(o).classList.toggle('hidden', o !== id);
   $('hud').classList.toggle('hidden', !(app.mode === 'play' || app.mode === 'pause'));
 }
 
@@ -218,6 +223,7 @@ function loadNight(n, opts = {}) {
   const map = MAPS[n];
   const seed = (Date.now() & 0x7fffffff) >>> 0;
   app.game = new Game(T, { seed: opts.seed ?? seed, night: n, onEvent, scenario: opts.scenario ?? null, bench: opts.bench ?? null });
+  if (app.runSeed == null) app.runSeed = opts.seed ?? seed;
   app.world = buildWorld(map);
   scene.add(app.world.group);
   const view = (app.view = { lanterns: new Map(), shades: new Map(), motes: new Map(), drifters: new Map(), charms: new Map(), all: [], fx: [] });
@@ -276,12 +282,17 @@ function openSettings(from) {
   $('sVol').value = settings.volume;
   $('sSens').value = settings.sens;
   $('sCb').checked = !!settings.cb;
+  $('sReduce').checked = !!settings.reduce;
+  $('sLarge').checked = !!settings.large;
+  rebinding = null;
+  renderKeys();
   show('settings');
 }
 
 $('bPlay').onclick = () => {
   audio.ensure();
   app.totals = {};
+  app.runSeed = null;
   startIntro(+(new URLSearchParams(location.search).get('night') || 1));
 };
 $('bGo').onclick = play;
@@ -310,6 +321,68 @@ $('sSens').oninput = (e) => {
 $('bNext').onclick = () => nextAction();
 let nextAction = () => {};
 
+// ---------- accessibility settings ----------
+const applyBodyFlags = () => {
+  document.body.classList.toggle('reduce', !!settings.reduce);
+  document.body.classList.toggle('large', !!settings.large);
+};
+applyBodyFlags();
+$('sReduce').onchange = (e) => { settings.reduce = e.target.checked; applyBodyFlags(); saveSettings(); };
+$('sLarge').onchange = (e) => { settings.large = e.target.checked; applyBodyFlags(); saveSettings(); };
+const keyName = (c) => (c || '—').replace(/^Key/, '').replace(/^Digit/, '').replace('ShiftLeft', 'Shift trái').replace('ShiftRight', 'Shift phải').replace('Space', 'Space');
+let rebinding = null;
+function renderKeys() {
+  const used = {};
+  for (const [a, c] of Object.entries(settings.keys)) (used[c] ??= []).push(a);
+  const dups = Object.values(used).filter((l) => l.length > 1);
+  $('keyList').innerHTML = Object.keys(DEFAULT_KEYS)
+    .map((a) => `<span>${KEY_LABELS[a]}</span><button data-a="${a}" class="${used[settings.keys[a]].length > 1 ? 'dup' : ''}">${rebinding === a ? 'Nhấn phím…' : keyName(settings.keys[a])}</button>`)
+    .join('');
+  $('keyWarn').textContent = dups.length ? `⚠ Trùng phím: ${dups.map((l) => l.map((a) => KEY_LABELS[a]).join(' / ')).join('; ')}` : '';
+  for (const b of $('keyList').querySelectorAll('button')) b.onclick = () => { rebinding = b.dataset.a; renderKeys(); };
+}
+$('bKeysReset').onclick = () => { settings.keys = { ...DEFAULT_KEYS }; rebinding = null; saveSettings(); renderKeys(); };
+
+// ---------- leaderboard (server file on disk; localStorage fallback for static hosting) ----------
+async function lbLoad() {
+  try {
+    const r = await fetch('api/leaderboard');
+    if (r.ok) return (await r.json()).entries;
+  } catch {}
+  try { return sortEntries(JSON.parse(localStorage.getItem('ddl-leaderboard') || '[]')); } catch { return []; }
+}
+async function lbSave(entry) {
+  try {
+    const r = await fetch('api/leaderboard', { method: 'POST', body: JSON.stringify(entry) });
+    if (r.ok) return (await r.json()).entries;
+  } catch {}
+  const list = addEntry(await lbLoad(), entry);
+  try { localStorage.setItem('ddl-leaderboard', JSON.stringify(list)); } catch {}
+  return list;
+}
+const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+async function openBoard(highlight) {
+  const list = await lbLoad();
+  $('lbBody').innerHTML = list.length
+    ? list.map((e, i) => `<tr style="${highlight && e.name === highlight.name && e.score === highlight.score ? 'color:var(--gold);font-weight:700' : ''}"><td>${i + 1}</td><td>${esc(e.name)}</td><td>${e.score}</td><td>${e.nights_won}</td><td>${esc(e.achieved_at.slice(0, 16).replace('T', ' '))}</td></tr>`).join('')
+    : '<tr><td colspan="5">Chưa có ai. Hãy là người đầu tiên!</td></tr>';
+  show('board');
+}
+$('bBoard').onclick = () => openBoard();
+$('bBoardBack').onclick = () => show('menu');
+$('bSave').onclick = async () => {
+  const name = normalizeName($('nameIn').value);
+  if (!validName(name)) {
+    $('nameErr').textContent = '⚠ Tên cần 3–12 ký tự: chữ (có thể có dấu), số hoặc _';
+    return;
+  }
+  const entry = { name, score: totalScore(), nights_won: Object.keys(app.totals).length, seed: app.runSeed ?? 0 };
+  await lbSave(entry);
+  $('nameBox').classList.add('hidden');
+  openBoard(entry);
+  $('bBoardBack').onclick = () => { $('bBoardBack').onclick = () => show('menu'); show('result'); };
+};
+
 function showResult({ result, reason }) {
   const g = app.game;
   app.mode = 'result';
@@ -335,13 +408,29 @@ function showResult({ result, reason }) {
       $('bNext').textContent = 'Chơi lại Đêm này';
       nextAction = () => startIntro(app.night);
     }
+    const askName = (won && app.night === 3) || !won;
+    $('nameBox').classList.toggle('hidden', !askName);
+    $('nameErr').textContent = '';
     show('result');
+    if (askName) setTimeout(() => $('nameIn').focus(), 50);
   }, 1000);
 }
 
 // ---------- input ----------
 addEventListener('keydown', (e) => {
-  if (e.code === 'Escape' || e.code === 'KeyP') {
+  if (rebinding) {
+    e.preventDefault();
+    settings.keys[rebinding] = e.code;
+    rebinding = null;
+    saveSettings();
+    renderKeys();
+    return;
+  }
+  if (document.activeElement === $('nameIn')) {
+    if (e.code === 'Enter') $('bSave').onclick();
+    return;
+  }
+  if (e.code === settings.keys.pause || (e.code === 'KeyP' && !Object.values(settings.keys).includes('KeyP'))) {
     if (app.mode === 'play') pauseGame();
     else if (app.mode === 'pause') resume();
     return;
@@ -373,22 +462,32 @@ addEventListener('pointermove', (e) => {
 function readInput() {
   // camera looks along (sin yaw, cos yaw); contract +x is screen-left at yaw 0
   let x = 0, z = 0;
-  if (keys.has('KeyW') || keys.has('ArrowUp')) z += 1;
-  if (keys.has('KeyS') || keys.has('ArrowDown')) z -= 1;
-  if (keys.has('KeyA')) x += 1;
-  if (keys.has('KeyD')) x -= 1;
+  const K = settings.keys;
+  if (keys.has(K.up) || keys.has('ArrowUp')) z += 1;
+  if (keys.has(K.down) || keys.has('ArrowDown')) z -= 1;
+  if (keys.has(K.left)) x += 1;
+  if (keys.has(K.right)) x -= 1;
   if (keys.has('ArrowLeft')) camYaw += 0.03 * settings.sens;
   if (keys.has('ArrowRight')) camYaw -= 0.03 * settings.sens;
   input.move = [x, z];
   input.cam_yaw_deg = (camYaw * 180) / Math.PI;
-  input.jump = keys.has('Space');
-  input.interact = keys.has('KeyE');
-  input.pulse = keys.has('KeyF');
-  input.dash = keys.has('ShiftLeft') || keys.has('ShiftRight');
+  input.jump = keys.has(K.jump);
+  input.interact = keys.has(K.interact);
+  input.pulse = keys.has(K.pulse);
+  input.dash = keys.has(K.dash) || (K.dash === 'ShiftLeft' && keys.has('ShiftRight'));
 }
 
 // ---------- events → feedback ----------
 let toastTimer = 0, shake = 0, lastSec = -1;
+let shadeArrow = null; // { id, until }
+const lowWarned = new Set();
+function caption(msg) {
+  const el = document.createElement('div');
+  el.textContent = msg;
+  $('hCaption').appendChild(el);
+  while ($('hCaption').children.length > 4) $('hCaption').firstChild.remove();
+  setTimeout(() => el.remove(), 3500);
+}
 function toast(msg) {
   $('hToast').textContent = msg;
   $('hToast').style.opacity = 1;
@@ -410,6 +509,7 @@ function onEvent(e) {
     }
     case 'pulse': {
       audio.sfx('pulse');
+      if (settings.reduce) break;
       const m = new THREE.Mesh(new THREE.SphereGeometry(1, 24, 16), new THREE.MeshBasicMaterial({ color: PAL.core, transparent: true, opacity: 0.5 }));
       m.position.set(p[0], p[1] + STD.pulseCenterY, p[2]);
       add(m);
@@ -419,10 +519,14 @@ function onEvent(e) {
     }
     case 'player_hit':
       audio.sfx('hit');
-      shake = 0.45;
+      if (!settings.reduce) shake = 0.45;
       toast(e.data.by === 'fall' ? `Mây rơi xuống biển mây! Mất ${e.data.lost} đom đóm` : `Bóng Mực chạm vào Mây! Rơi ${e.data.dropped} đom đóm`);
       break;
-    case 'shade_spawned': audio.sfx('shade'); break;
+    case 'shade_spawned':
+      audio.sfx('shade');
+      caption(`👁 Bóng Mực xuất hiện (${e.data.id})`);
+      shadeArrow = { id: e.data.id, until: performance.now() + 3500 };
+      break;
     case 'dash': audio.sfx('dash'); break;
     case 'charm_picked': audio.sfx('charm'); toast('Bùa Gió! Chạy nhanh hơn, lướt không hồi chiêu'); break;
     case 'drifter_steal': audio.sfx('steal'); toast(`Gió Lạc cướp mất ${e.data.amount} đom đóm!`); break;
@@ -480,7 +584,7 @@ function render(now) {
   v.wasGrounded = p.grounded;
   v.player.g.position.set(...p.pos);
   v.player.g.rotation.y = Math.atan2(p.facing[0], p.facing[1]);
-  v.player.g.visible = p.dead === 0 && (p.invuln === 0 || Math.floor(t * 12) % 2 === 0);
+  v.player.g.visible = p.dead === 0 && (p.invuln === 0 || settings.reduce || Math.floor(t * 12) % 2 === 0);
   const glow = 0.6 + (p.carried / T.carry_capacity) * 2.4; // creative: hat lantern glows with carried light
   v.player.lampLight.intensity = glow * (0.9 + 0.1 * Math.sin(t * 9));
   v.player.lamp.rotation.z = Math.sin(t * 3) * 0.25;
@@ -586,6 +690,7 @@ function render(now) {
   // wind warning
   if (g.wind.warn && !g.wind.active && !windWarnShown) {
     windWarnShown = true;
+    caption('🍃 Gió sắp thổi mạnh!');
     windLeaves(g.wind.next);
     audio.sfx('wind');
   }
@@ -650,7 +755,16 @@ function hud(lit) {
   const clock = `${String(Math.floor(left / 60)).padStart(2, '0')}:${String(left % 60).padStart(2, '0')}`;
   $('hClock').classList.toggle('danger', left <= 30);
   setText('hClock', (settings.cb && left <= 30 ? '⚠ ' : '') + clock);
-  if (app.mode === 'play' && left <= 10 && left > 0 && left !== lastSec) audio.sfx('tick');
+  if (app.mode === 'play' && left <= 10 && left > 0 && left !== lastSec) {
+    audio.sfx('tick');
+    if (left === 10) caption('⏳ 10 giây cuối trước bình minh!');
+  }
+  for (const l of g.lanterns) {
+    const low = l.lit && l.fuelU < g.FU.low;
+    if (low && !lowWarned.has(l.id)) caption(`${settings.cb ? '⚠ ' : '🪔 '}Đèn ${l.id} sắp cạn dầu (< ${T.low_fuel_threshold})`);
+    if (low) lowWarned.add(l.id);
+    else lowWarned.delete(l.id);
+  }
   lastSec = left;
   const need = Math.ceil(T.win_ratio * g.lanterns.length - 1e-9);
   setText('hLit', `${lit}/${g.lanterns.length} (cần ${need})`);
@@ -662,6 +776,8 @@ function hud(lit) {
   const dashReady = p.charm > 0 ? 1 : 1 - p.dashCd / g.T.dashCd;
   const pulseReady = p.carried < T.pulse_cost ? 0 : 1 - p.pulseCd / g.T.pulseCd;
   $('cdDash').style.setProperty('--p', `${dashReady * 100}%`);
+  setHTML('cdDashL', `Lướt<br>${keyName(settings.keys.dash)}`);
+  setHTML('cdPulseL', `Tỏa sáng<br>${keyName(settings.keys.pulse)}`);
   $('cdPulse').style.setProperty('--p', `${pulseReady * 100}%`);
   // hint near lantern
   let hint = '';
@@ -697,6 +813,23 @@ function hud(lit) {
       arrow.style.left = `${sx - 14}px`;
       arrow.style.top = `${sy - 14}px`;
       arrow.style.transform = `rotate(${Math.atan2(x, y)}rad)`;
+    }
+  }
+  const sa = $('hShadeArrow');
+  sa.style.display = 'none';
+  const sh = shadeArrow && performance.now() < shadeArrow.until && g.shades.find((x) => x.id === shadeArrow.id);
+  if (sh) {
+    const v = projV.set(sh.pos[0], sh.pos[1], sh.pos[2]).project(camera);
+    const behind = v.z > 1;
+    if (behind || Math.abs(v.x) > 1 || Math.abs(v.y) > 1) {
+      let x = behind ? -v.x : v.x, y = behind ? -v.y : v.y;
+      const m = Math.max(Math.abs(x), Math.abs(y)) || 1;
+      x /= m;
+      y /= m;
+      sa.style.display = 'block';
+      sa.style.left = `${(x * 0.88 * innerWidth) / 2 + innerWidth / 2 - 14}px`;
+      sa.style.top = `${(-y * 0.8 * innerHeight) / 2 + innerHeight / 2 - 14}px`;
+      sa.style.transform = `rotate(${Math.atan2(x, y)}rad)`;
     }
   }
   if (toastTimer > 0 && (toastTimer -= 1 / 60) <= 0) $('hToast').style.opacity = 0;
