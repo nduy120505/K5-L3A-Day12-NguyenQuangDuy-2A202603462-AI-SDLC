@@ -1,0 +1,14 @@
+{
+  "name": "dao-den-long",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Đảo Đèn Lồng — 3D third-person game (AI SDLC lab, Day 12). Zero npm dependencies.",
+  "scripts": {
+    "start": "node scripts/serve.js",
+    "headless": "node src/headless.js",
+    "test": "node --test tests/*.test.js",
+    "proof": "node scripts/proof.js"
+  },
+  "engines": { "node": ">=18" }
+}
